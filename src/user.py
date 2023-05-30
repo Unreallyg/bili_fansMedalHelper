@@ -31,7 +31,7 @@ class BiliUser:
             raise ValueError("白名单或黑名单格式错误")
         self.config = config
         self.medals = []  # 用户所有勋章
-        self.medalsNeedDo = []  # 用户所有勋章，等级小于20的 未满1500的
+        self.medalsNeedDo = []  # 用户勋章，等级小于20的
 
         self.session = ClientSession(timeout=ClientTimeout(total=3))
         self.api = BiliApi(self, self.session)
@@ -96,7 +96,7 @@ class BiliUser:
         [
             self.medalsNeedDo.append(medal)
             for medal in self.medals
-            if medal['medal']['level'] < 20 and medal['medal']['today_feed'] < 1500
+            #if medal['medal']['level'] < 41
         ]
 
     async def asynclikeandShare(self, failedMedals: list = []):
@@ -231,7 +231,8 @@ class BiliUser:
             (await self.api.wearMedal(self.initialMedal['medal_id'])) if self.config['WEARMEDAL'] else ...
         self.log.log("SUCCESS", "弹幕打卡任务完成")
         self.message.append(f"【{self.name}】 弹幕打卡任务完成 {n}/{len(self.medals)}")
-        if n >= 5:
+        """
+                if n >= 5:
             try:
                 await self.api.getOneBattery()
                 self.log.log("SUCCESS", "领取电池成功")
@@ -239,7 +240,8 @@ class BiliUser:
             except Exception as e:
                 self.log.log("ERROR", "领取电池失败: {}".format(e))
                 self.errmsg.append(f"【{self.name}】 领取电池失败: {str(e)}")
-
+        """
+        
     async def init(self):
         if not await self.loginVerify():
             self.log.log("ERROR", "登录失败 可能是 access_key 过期 , 请重新获取")
@@ -253,14 +255,13 @@ class BiliUser:
         if self.isLogin:
             tasks = []
             if self.medalsNeedDo:
-                self.log.log("INFO", f"共有 {len(self.medalsNeedDo)} 个牌子未满 1500 亲密度")
+                self.log.log("INFO", f"共有 {len(self.medalsNeedDo)} 个牌子加入任务")
                 tasks.append(self.like_v3())
                 tasks.append(self.watchinglive())
-            else:
-                self.log.log("INFO", "所有牌子已满 1500 亲密度")
             tasks.append(self.sendDanmaku())
             tasks.append(self.signInGroups())
             await asyncio.gather(*tasks)
+        # await self.session.close()
 
     async def sendmsg(self):
         if not self.isLogin:
@@ -301,16 +302,16 @@ class BiliUser:
                     need = initialMedal['next_intimacy'] - initialMedal['intimacy']
                     need_days = need // 1500 + 1
                     end_date = datetime.now() + timedelta(days=need_days)
-                    self.message.append(f"今日已获取亲密度 {initialMedal['today_feed']} (B站结算有延迟，请耐心等待)")
+                    self.message.append(f"当前亲密度 {initialMedal['intimacy']}")
                     self.message.append(
-                        f"距离下一级还需 {need} 亲密度 预计需要 {need_days} 天 ({end_date.strftime('%Y-%m-%d')},以每日 1500 亲密度计算)"
+                        f"距离下一级还需 {need} 亲密度，预计还要 {need_days} 天：{end_date.strftime('%Y/%m/%d')}"
                     )
         await self.session.close()
         return self.message + self.errmsg + ['---']
 
     async def watchinglive(self):
         if not self.config['WATCHINGLIVE']:
-            self.log.log("INFO", "每日观看不直播任务关闭")
+            self.log.log("INFO", "每日观看直播任务关闭")
             return
         HEART_MAX = self.config['WATCHINGLIVE']
         self.log.log("INFO", f"每日{HEART_MAX}分钟任务开始")
@@ -323,7 +324,7 @@ class BiliUser:
             heartNum += 1
             self.log.log(
                 "INFO",
-                f"{' '.join([medal['anchor_info']['nick_name'] for medal in self.medalsNeedDo[:5]])} 等共 {len(self.medalsNeedDo)} 个房间的第{heartNum}次心跳包已发送（{heartNum}/{HEART_MAX}）",
+                f"{' '.join([medal['anchor_info']['nick_name'] for medal in self.medalsNeedDo[:5]])} 等 {len(self.medalsNeedDo)} 个直播间已获得第{heartNum}个包（{heartNum}/{HEART_MAX}）",
             )
             await asyncio.sleep(60)
             if heartNum >= HEART_MAX:
