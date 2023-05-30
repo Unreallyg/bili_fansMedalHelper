@@ -31,7 +31,7 @@ class BiliUser:
             raise ValueError("白名单或黑名单格式错误")
         self.config = config
         self.medals = []  # 用户所有勋章
-        self.medalsNeedDo = []  # 用户勋章，等级小于20的
+        self.medalsNeedDo = []
 
         self.session = ClientSession(timeout=ClientTimeout(total=3))
         self.api = BiliApi(self, self.session)
@@ -232,7 +232,7 @@ class BiliUser:
         self.log.log("SUCCESS", "弹幕打卡任务完成")
         self.message.append(f"【{self.name}】 弹幕打卡任务完成 {n}/{len(self.medals)}")
         """
-                if n >= 5:
+        if n >= 5:
             try:
                 await self.api.getOneBattery()
                 self.log.log("SUCCESS", "领取电池成功")
@@ -300,11 +300,11 @@ class BiliUser:
                 )
                 if initialMedal['level'] < 20 and initialMedal['today_feed'] != 0:
                     need = initialMedal['next_intimacy'] - initialMedal['intimacy']
-                    need_days = need // 1500 + 1
+                    need_days = need // initialMedal['today_feed'] + 1
                     end_date = datetime.now() + timedelta(days=need_days)
                     self.message.append(f"当前亲密度 {initialMedal['intimacy']}")
                     self.message.append(
-                        f"距离下一级还需 {need} 亲密度，预计还要 {need_days} 天：{end_date.strftime('%Y/%m/%d')}"
+                        f"距离下一级还需 {need} 亲密度，预计还要 {need_days} 天：{end_date.strftime('%Y/%m/%d')}\n(按今日获取亲密度 {initialMedal['today_feed']} 计算)"
                     )
         await self.session.close()
         return self.message + self.errmsg + ['---']
